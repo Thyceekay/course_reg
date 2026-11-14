@@ -32,12 +32,18 @@ $env:DATABASE_ENGINE = "sqlite"
 
 python manage.py check
 python manage.py migrate
+python manage.py createsuperuser
 python manage.py runserver
 ```
 
 Open <http://127.0.0.1:8000/> to view the starter homepage. Stop the development
 server with `Ctrl+C`. The environment variables last only for the current
 PowerShell session; generate a new local key when opening another session.
+
+To create a local administrator, run `python manage.py createsuperuser` after
+migrations and enter the account details interactively in PowerShell. Then sign
+in at <http://127.0.0.1:8000/admin/>. Do not put administrator credentials in
+source files or documentation.
 
 ## Check migrations and model tests
 
@@ -65,6 +71,12 @@ must also contain at least one course, which cannot be expressed as a portable
 row-level database constraint because its items are stored in a separate table.
 The eventual submission flow must reject an empty selection and save the
 registration and its items atomically.
+
+Authorized staff can create, search, and filter courses and review all student
+profiles, including those without registrations. They can inspect submission
+status, time, and selected courses. Submitted registrations are read-only; a
+course used in a registration cannot be deleted or assigned an incompatible
+level.
 
 If PowerShell blocks virtual-environment activation, use the environment's
 Python directly instead:

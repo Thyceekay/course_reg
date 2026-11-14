@@ -50,3 +50,12 @@ For each implementation milestone, record:
   authentication result as historical evidence, not as a new run.
 - Remaining work: no course management or student course/registration workflow is available; `Registration` can be empty in the database model, and there are no admin screens for core models.
 - Next milestone: implement level-specific course browsing and atomic final registration submission, with server-side ownership and validation.
+
+## Django admin management and review milestone
+- Registered `Course`, `StudentProfile`, and `Registration` in Django admin. Course screens support create, search by code/title, and level filtering; student screens show all profiles with name, username, level, submission status/time, and selected courses, and support name/username search.
+- Kept registration add/change/delete unavailable and disabled bulk actions. Student levels are read-only after a registration exists. Course deletion remains protected by `PROTECT`, and the existing model validation rejects course-level changes that would invalidate registrations, including through admin forms.
+- Documented local interactive superuser creation in `README.md` and the functional guide. Documented a future correction workflow requiring authorization, preservation of the original submission, validation, and an audit trail; no correction path or credentials were added.
+- Added six `AdminWorkflowTests` covering course creation/search/filtering, students with and without registrations, permission boundaries, submitted registration immutability, student-level locking, and course deletion/level-change protections. An initial search test exposed overlapping fixture usernames; the test data was made unambiguous and the targeted suite then passed.
+- Validation completed: `manage.py test core.tests.AdminWorkflowTests` passed all 6 tests; `manage.py test` passed all 31 tests; `manage.py check` reported no issues; `manage.py makemigrations --check --dry-run` reported no changes; `git diff --check` passed. Local test settings were process-only values; no admin credentials were recorded.
+- Manual browser verification was not performed. PostgreSQL behavior was not retested; verification used the configured local SQLite test database.
+- Scope: Django admin only. The next incomplete milestone remains student-level course browsing and atomic final registration submission, with server-side ownership and validation.

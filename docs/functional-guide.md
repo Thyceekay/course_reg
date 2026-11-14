@@ -1,8 +1,8 @@
 # Functional Guide
 
-This guide describes the application as it is implemented now. A model in the
-database is not necessarily a usable screen: course and registration workflows
-are not available yet.
+This guide describes the application as it is implemented now. Student course
+browsing and registration workflows are not available yet, although staff can
+manage courses and review students and submitted registrations in admin.
 
 ## Status key
 
@@ -51,7 +51,8 @@ are not available yet.
   before creating the superuser. Visit `http://127.0.0.1:8000/admin/` after the
   server starts.
 - **Example:** Run `python manage.py createsuperuser` to make the first account
-  that can sign in to Django admin.
+  that can sign in to Django admin. Enter credentials interactively; do not
+  store them in source code or documentation.
 
 ## 2. Users, staff status, superuser status, and permissions
 
@@ -64,10 +65,13 @@ records.
 - **Where / who:** Django users are managed through Django admin where the
   signed-in administrator has the required permissions. Students create their
   own account at `/accounts/signup/`. Only a staff user can enter `/admin/`.
-- **Actions and fields:** Django's built-in user has `is_active`, `is_staff`,
-  `is_superuser`, direct `user_permissions`, and group memberships. The public
-  signup form accepts username, full name, level, and password fields only; it
-  does not accept or apply privilege fields.
+- **Actions and fields:** Staff with the relevant model permissions can create
+  and search/filter courses, view all student profiles (including profiles
+  without registrations), and search students by name or username. The profile
+  list and detail show the student's level, submission status and time, and
+  selected courses. Registration records are view-only. The public signup form
+  accepts username, full name, level, and password fields only; it does not
+  accept or apply privilege fields.
 - **Restrictions and validation:** Django admin requires an active staff user.
   Staff status opens the admin site but does not itself grant every model
   action; the user also needs the relevant `view`, `add`, `change`, or `delete`
@@ -91,8 +95,8 @@ records.
 |---|---|---|---|---|
 | Anonymous visitor | Home, signup, login | No; login required | No | Not available |
 | Student account | Home, login, logout | Own profile only | No | Not available |
-| Active staff account | Home and login | No; a student profile is required | Yes, subject to model permissions | Not available for core models |
-| Active superuser | Home and login | No; a student profile is required | Yes; Django superuser permissions | Not available for core models |
+| Active staff account | Home and login | No; a student profile is required | Yes, subject to model permissions | Per granted core-model permissions; submitted registrations remain read-only |
+| Active superuser | Home and login | No; a student profile is required | Yes; Django superuser permissions | Manage courses and review all students and submitted registrations |
 
 The application has no student/staff role model beyond Django's user flags and
 the `StudentProfile` relationship. A user created with `createsuperuser` is
@@ -101,7 +105,8 @@ for administration, not student signup.
 ## 3. Groups and when to use them
 
 **Status: Partial.** Django groups and permissions are installed, but the
-application defines no custom groups or group-based business rules.
+application defines no custom groups or group-based business rules. Core-model
+permissions now control access to course and student-review screens.
 
 - **Purpose:** Bundle Django permissions for staff who need a consistent set of
   allowed admin actions.
@@ -111,9 +116,10 @@ application defines no custom groups or group-based business rules.
 - **Actions and fields:** A group has a name and a set of Django permissions.
   Add users to the group to grant those permissions to them.
 - **Restrictions and validation:** Groups do not grant staff status. A user
-  still needs to be active and marked as staff to enter admin. Core course,
-  profile, and registration models are not registered in admin, so group
-  permissions do not currently create course or registration screens.
+  still needs to be active and marked as staff to enter admin. Course,
+  student-profile, and registration screens require their respective model
+  permissions. Registration records are read-only, and student levels become
+  read-only in admin after submission.
 - **Distinction from student levels:** A **group** is an authorization
   mechanism. A **student level** is the student's academic level (100, 200,
   300, 400, or 500) stored on `StudentProfile`. Levels do not grant Django
@@ -121,32 +127,29 @@ application defines no custom groups or group-based business rules.
 - **Prerequisites / next step:** An administrator with group-management
   permissions must create a group and assign the intended Django permissions.
   No custom role names are required by the current application.
-- **Example:** A future course-management group could bundle course permissions
-  once course administration is implemented; assigning a student to a
-  "Level 200" group is not how the current level field works.
+- **Example:** A course-management group can bundle the course permissions
+  staff need; assigning a student to a "Level 200" group is not how the
+  current level field works.
 
 ## 4. Course creation and level assignment
 
-**Status: Partial.** The `Course` model and validation exist; there is no
-course form, view, URL, or admin registration.
+**Status: Implemented in Django admin.**
 
 - **Purpose:** Store the course code, title, and one academic level for a future
   student course list.
-- **Where / who:** No user-facing page or admin screen exists.
-  [core/admin.py](../core/admin.py) does not register `Course`. A developer can
-  inspect or manipulate model data in Django's shell, but that is not an
-  implemented staff workflow.
+- **Where / who:** Staff with course permissions use `/admin/`. Django admin
+  exposes course creation and management in [core/admin.py](../core/admin.py).
 - **Actions and fields:** The model fields are `code` (maximum 32 characters),
   `title` (maximum 200 characters), and `level` (100, 200, 300, 400, or 500).
 - **Restrictions and validation:** Codes are trimmed, uppercased, and unique.
   The database restricts levels to the supported choices. A course referenced
   by a registration item cannot be deleted; a level change that would make an
-  existing registration inconsistent is rejected by model validation.
-- **Prerequisites / next step:** Course data must exist before students can
-  browse or select courses, but the course creation workflow must be
-  implemented first.
-- **Example (not currently available):** A future administrator could create
-  `CS101`, title it “Introduction to Computing”, and assign level 100.
+  existing registration inconsistent is rejected by model validation in admin.
+  Bulk actions are disabled.
+- **Prerequisites / next step:** Staff can create courses now; a student-facing
+  level-filtered course list and selection workflow remain to be implemented.
+- **Example:** An authorized administrator can create `CS101`, title it
+  “Introduction to Computing”, and assign level 100.
 
 ## 5. Student signup, login, and profile
 
@@ -241,28 +244,40 @@ students have no page to review it.
 
 ## 9. Admin review of students and registrations
 
-**Status: Partial.** Django admin authentication is available, but student,
-course, and registration review screens are not.
+**Status: Implemented for course management and student/registration review;
+registration correction is unavailable.**
 
-- **Purpose:** Intended for authorized staff to manage courses and review all
-  students and their submissions.
+- **Purpose:** Let authorized staff manage courses and review all students and
+  their submissions.
 - **Where / who:** Staff sign in at `/admin/`. The admin site is Django's
-  built-in site, but [core/admin.py](../core/admin.py) currently registers no
-  application models.
-- **Actions and fields:** Django's built-in user and group administration may
-  be available to staff with the corresponding permissions. There is no
-  application screen for course creation, listing all `StudentProfile`
-  records, opening a student's registration, or correcting a registration.
+  built-in site; [core/admin.py](../core/admin.py) registers courses, student
+  profiles, and submitted registrations.
+- **Actions and fields:** Staff with the relevant permissions can create and
+  search/filter courses, search students by name or username, see all student
+  profiles (including those without registrations), and inspect each
+  submission's level, status, time, and selected courses.
 - **Restrictions and validation:** Admin access requires an active staff user;
-  individual Django model permissions control available admin actions.
-  Course/registration consistency protections are present in model save paths,
-  but there is no application admin workflow to perform corrections.
+  individual Django model permissions control available actions. Bulk actions
+  are disabled. Students with a submitted registration have a read-only level;
+  submitted registrations cannot be added, changed, or deleted through admin.
+  A course used in a submission cannot be deleted or assigned an incompatible
+  level.
+- **Future correction workflow:** Version one does not correct a submitted
+  registration in place. A future correction process should require an
+  authorized, documented request; preserve the original submitted record;
+  validate the corrected student/course levels; and record the actor, reason,
+  time, and before/after values in an audit trail. Until such a workflow exists,
+  corrections must not be made by silently editing historical records or
+  bypassing admin protections.
 - **Prerequisites / next step:** Create an active staff/superuser account as
-  described in section 1. The core model admin registrations and review views
-  remain to be implemented.
+  described in section 1, then grant the least required model permissions to
+  staff groups or accounts.
+- **Not available:** Student-facing course browsing, registration submission
+  and viewing, and staff corrections to submitted registrations are not
+  implemented in version one.
 - **Example:** A student visiting `/admin/` is denied entry; an authorized
-  staff member can reach Django admin but cannot yet review course
-  registrations there.
+  staff member can review an unregistered student and inspect a submitted
+  registration without changing its historical data.
 
 ## 10. Logout and access restrictions
 
@@ -289,10 +304,9 @@ course, and registration review screens are not.
 
 The following actions are not currently available through the application:
 
-- Creating, editing, or managing courses through a staff screen.
 - Browsing level-specific courses or selecting courses as a student.
 - Submitting, editing, or viewing a final registration.
-- Viewing all students or reviewing/correcting their registrations in admin.
+- Correcting submitted registrations through an audited staff workflow.
 - Payments, timetables, prerequisites, credit limits, email notifications,
   PDF exports, and multiple academic sessions.
 
@@ -301,7 +315,8 @@ The following actions are not currently available through the application:
 The [progress log](./progress.md) records that the authentication milestone's
 `manage.py test` run passed 25 tests and that
 `python manage.py makemigrations --check --dry-run` reported no changes. This
-guide change did not run tests.
+guide change did not run tests. It also records the later admin milestone's
+focused permission and protection test results.
 
 Tests in [core/tests.py](../core/tests.py) support the implemented behavior:
 
@@ -314,3 +329,6 @@ Tests in [core/tests.py](../core/tests.py) support the implemented behavior:
   supported levels, course/profile consistency, and protection of registered
   data. These are model tests; they do not prove that course or registration
   screens exist.
+- `AdminWorkflowTests` verifies course creation/search/filtering, student
+  review and search (including students without registrations), read-only
+  submitted registrations, permissions, and course/student-level protections.
