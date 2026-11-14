@@ -38,3 +38,15 @@ For each implementation milestone, record:
 - Remaining validation: the migration and model tests ran against SQLite; PostgreSQL constraint and migration behavior has not been exercised against a running PostgreSQL server.
 - Scope: database design and migrations only; the student registration submission workflow remains unimplemented.
 - Next milestone: implement application flows using these models and keep submission validation inside a transaction.
+
+## Functional guide documentation milestone
+- Created `docs/functional-guide.md` after inspecting the project instructions, requirements, settings, models, forms, views, URLs, admin configuration, templates, and tests.
+- Documented setup and superuser creation, Django user/staff/superuser permissions, groups versus student levels, and the implemented signup/login/dashboard/logout workflow.
+- Marked course creation, browsing, registration submission and viewing, and admin review according to their current implementation status; documented existing model constraints separately from missing user-facing workflows.
+- Reviewed the guide and progress diff for unintended content and
+  credential-like values; a targeted scan found no matches, and
+  `git diff --check` passed. This documentation-only milestone ran no
+  application tests; the guide reports the previously recorded 25-test
+  authentication result as historical evidence, not as a new run.
+- Remaining work: no course management or student course/registration workflow is available; `Registration` can be empty in the database model, and there are no admin screens for core models.
+- Next milestone: implement level-specific course browsing and atomic final registration submission, with server-side ownership and validation.
