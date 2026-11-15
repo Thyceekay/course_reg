@@ -112,9 +112,41 @@ class Registration(models.Model):
         related_name="registration",
     )
     submitted_at = models.DateTimeField(auto_now_add=True)
+    corrected_at = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
         return f"Registration for {self.student}"
+
+
+class RegistrationAudit(models.Model):
+    class Action(models.TextChoices):
+        COURSE_CORRECTION = "course_correction", "Course correction"
+        REGISTRATION_RESET = "registration_reset", "Registration reset"
+        ACCOUNT_DELETION = "account_deletion", "Account deletion"
+
+    actor_username = models.CharField(max_length=150)
+    target_user_id = models.CharField(max_length=64)
+    target_username = models.CharField(max_length=150)
+    target_full_name = models.CharField(max_length=150, blank=True)
+    target_profile_id = models.CharField(max_length=64, blank=True)
+    target_registration_id = models.CharField(max_length=64, blank=True)
+    target_level = models.PositiveSmallIntegerField(blank=True, null=True)
+    action = models.CharField(max_length=32, choices=Action.choices)
+    reason = models.TextField()
+    before_courses = models.JSONField(default=list)
+    after_courses = models.JSONField(default=list)
+    submitted_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="registration_audit_events",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
 
 
 class RegistrationItem(models.Model):

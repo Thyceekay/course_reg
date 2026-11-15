@@ -39,6 +39,26 @@ For each implementation milestone, record:
 - Scope: database design and migrations only; the student registration submission workflow remains unimplemented.
 - Next milestone: implement application flows using these models and keep submission validation inside a transaction.
 
+## Authentication and permissions milestone
+- Implemented student signup with Django's `UserCreationForm`, configured password validators, unique usernames, password confirmation, supported-level validation, and one full-name field.
+- Signup stores the full name on Django's built-in user and atomically creates the user and `StudentProfile`. The form only accepts student account fields; submitted staff, superuser, group, and permission values are ignored.
+- Added session-backed login, POST-only logout with CSRF protection, and an authenticated student dashboard that resolves the profile only from the current user. Anonymous dashboard visits go to login; users without a student profile are denied.
+- Kept administrative authentication on Django's built-in admin, which requires an active staff account. Added accessible labels and inline validation errors to signup and login forms, with CSRF tokens on state-changing forms.
+- Verified the pre-existing baseline before changes: `manage.py test core.tests` passed all 12 model/homepage tests.
+- Added 13 authentication tests covering successful signup and login, password hashing, invalid and weak passwords, duplicate usernames, privilege-field injection, empty submissions, anonymous access, student-to-admin denial, student data isolation, POST-only logout, and CSRF enforcement.
+- Final validation: `manage.py test` passed all 25 tests; `manage.py makemigrations --check --dry-run` reported no changes; Django's test runner reported no system-check issues; Pylance found no syntax errors in the changed Python files.
+- Test settings were temporary process environment values only. The existing `.env` configuration and `db.sqlite3` were not altered; the database file retained its original size and modification time after testing.
+- Manual browser verification has not been performed. Course browsing and registration routes do not exist yet; the current student page accesses only the signed-in student's profile, and future record views must continue enforcing ownership.
+- Manual verification checklist:
+  1. Visit `/accounts/signup/`, create a student account, and confirm the student dashboard shows the submitted name and level.
+  2. Sign out, visit `/accounts/login/`, and verify correct credentials log in while an incorrect password displays an error.
+  3. Try a duplicate username, unsupported level, mismatched passwords, and a weak password; confirm each shows a validation error and creates no account.
+  4. Submit signup fields such as `is_staff`, `is_superuser`, `groups`, or `user_permissions`; confirm the account remains a normal student.
+  5. Open `/student/` in a signed-out browser and confirm login is required; sign in as one student and confirm only that student's profile is shown.
+  6. Visit `/admin/` as a student and confirm Django does not grant admin access. Verify logout submits a POST form and returns to the homepage.
+- Scope: authentication and permissions only; course browsing and registration submission are still unimplemented.
+- Next milestone: implement level-specific course browsing and atomic final course registration, enforcing the one-registration and non-empty-selection rules.
+
 ## Functional guide documentation milestone
 - Created `docs/functional-guide.md` after inspecting the project instructions, requirements, settings, models, forms, views, URLs, admin configuration, templates, and tests.
 - Documented setup and superuser creation, Django user/staff/superuser permissions, groups versus student levels, and the implemented signup/login/dashboard/logout workflow.
@@ -59,3 +79,23 @@ For each implementation milestone, record:
 - Validation completed: `manage.py test core.tests.AdminWorkflowTests` passed all 6 tests; `manage.py test` passed all 31 tests; `manage.py check` reported no issues; `manage.py makemigrations --check --dry-run` reported no changes; `git diff --check` passed. Local test settings were process-only values; no admin credentials were recorded.
 - Manual browser verification was not performed. PostgreSQL behavior was not retested; verification used the configured local SQLite test database.
 - Scope: Django admin only. The next incomplete milestone remains student-level course browsing and atomic final registration submission, with server-side ownership and validation.
+
+## Student registration journey milestone
+- Implemented the student dashboard course list, filtering courses by the signed-in student's stored level and showing labelled course-code/title checkboxes or an informative empty state.
+- Added a server-rendered review step and finality warning, followed by a no-JavaScript POST submission. Student identity and level come from the authenticated user/profile, never from submitted fields.
+- The form rejects empty, duplicate, malformed, nonexistent, and wrong-level course IDs. Final submission revalidates eligible course rows inside one transaction, locks the student and selected courses, creates the registration and items atomically, and relies on the existing one-registration database constraint as a final duplicate safeguard. Database integrity failures are handled without exposing database details; successful and repeated POSTs redirect.
+- The dashboard displays the saved courses and submission timestamp, derives ownership from the active session, and shows the persistent record after later login. Submitted registrations cannot be edited by students.
+- Added eight `StudentRegistrationFlowTests` for eligibility/display, the empty state, multi-course review and submit, empty/tampered/duplicate selections, repeat requests, rollback after an item insert failure, and ownership. Added a PostgreSQL-only concurrent submission test.
+- Validation completed: focused registration tests passed all 8 tests; the full `manage.py test` run passed 39 tests with the PostgreSQL-only concurrency test skipped on SQLite (40 tests discovered); `manage.py check` passed; `manage.py makemigrations --check --dry-run` reported no changes; Pylance found no syntax errors in the changed Python files; `git diff --check` passed.
+- PostgreSQL concurrency was not executed: the local test database is SQLite and `psql`/`postgres` commands are unavailable. The PostgreSQL-specific test is ready to run against a configured PostgreSQL test database. Manual browser verification was not performed.
+- Scope: the student registration journey is implemented. The next incomplete verification milestone is running the concurrency test against PostgreSQL; an audited staff correction workflow remains intentionally out of scope.
+
+## Interface review and accessibility milestone
+- Replaced the standalone public, login, signup, and dashboard markup with a shared server-rendered layout and a local stylesheet. Added consistent navigation, typography, spacing, form controls, buttons, responsive panels, success feedback, and a titled empty state without changing business rules or adding JavaScript or UI dependencies.
+- Added a skip link, visible keyboard focus, responsive course selection, long-text wrapping, and field-level errors. Course-selection errors are associated with the checkbox fieldset through `aria-describedby` and `aria-invalid`.
+- Verified the rendered site with the integrated browser, including home, signup/login, course list, review, submitted registration, empty state, and Django admin. Checked 360px, 768px, and desktop viewport widths; public pages had no horizontal document overflow. At 360px, the admin student-results table remained usable in its horizontally scrollable results region. Keyboard focus reached the skip link with a visible outline. Labels and error associations were checked in the rendered pages.
+- Calculated text/focus contrast for the primary interface color pairs; all checked ratios exceeded WCAG AA text contrast thresholds. Browser checks confirmed the local stylesheet returned HTTP 200.
+- Validation completed: `manage.py test` passed 41 of 42 tests, with the PostgreSQL-only concurrency test skipped on SQLite; the focused migration-alignment and empty-selection accessibility tests passed; `manage.py makemigrations --check --dry-run` reported no changes; `manage.py migrate --check` found no unapplied migrations; and `manage.py showmigrations --plan` showed all migrations applied. `manage.py check` and `git diff --check` also passed.
+- Aligned `core/models.py` with the existing `core.0002_registration_corrected_at_registrationaudit` migration by adding `Registration.corrected_at` and `RegistrationAudit`. The audit schema is not exposed as a correction workflow; student submissions remain immutable and staff corrections remain out of scope.
+- Added a persistence test for audit actions and before/after course snapshots. The local SQLite database already recorded migrations `core.0001_initial` and `core.0002_registration_corrected_at_registrationaudit`; no applied migration was rewritten.
+- Next incomplete verification milestone: run the concurrent-registration test against PostgreSQL. The audited staff correction workflow remains intentionally unavailable.

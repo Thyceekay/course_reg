@@ -1,0 +1,26 @@
+{% extends "core/base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+  <section class="page-heading" aria-labelledby="home-heading">
+    <h1 id="home-heading">Plan your course registration</h1>
+    <p class="lead">Choose courses for your academic level, review your selection, and submit one final registration.</p>
+  </section>
+  {% if user.is_authenticated %}
+    <section class="panel" aria-labelledby="welcome-heading">
+      <h2 id="welcome-heading">Welcome back, {{ user.get_full_name|default:user.username }}.</h2>
+      <p>Your student account is ready. Continue to your level-specific course list or view your submitted registration.</p>
+      <a class="button" href="{% url 'student_dashboard' %}">Go to student dashboard</a>
+    </section>
+  {% else %}
+    <section class="panel" aria-labelledby="get-started-heading">
+      <h2 id="get-started-heading">Get started</h2>
+      <p>Create a student account to see courses assigned to your level and complete your registration.</p>
+      <div class="action-row">
+        <a class="button" href="{% url 'signup' %}">Create a student account</a>
+        <a class="button button-secondary" href="{% url 'login' %}">Log in</a>
+      </div>
+    </section>
+  {% endif %}
+{% endblock %}

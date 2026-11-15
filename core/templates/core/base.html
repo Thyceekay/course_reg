@@ -1,0 +1,41 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#17324f">
+    <title>{% block title %}Course Registration{% endblock %} | Course Registration System</title>
+    <link rel="stylesheet" href="{% static 'core/site.css' %}">
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="{% url 'home' %}">Course Registration</a>
+        <nav class="site-nav" aria-label="Main navigation">
+          <ul>
+            {% if user.is_authenticated %}
+              <li><a href="{% url 'student_dashboard' %}">Student dashboard</a></li>
+              <li>
+                <form action="{% url 'logout' %}" method="post">
+                  {% csrf_token %}
+                  <button class="nav-button" type="submit">Log out</button>
+                </form>
+              </li>
+            {% else %}
+              <li><a href="{% url 'login' %}">Log in</a></li>
+              <li><a class="nav-signup" href="{% url 'signup' %}">Create an account</a></li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main class="page-shell" id="main-content">
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="site-footer">
+      <div class="footer-inner">Course Registration System</div>
+    </footer>
+  </body>
+</html>

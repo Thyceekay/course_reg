@@ -1,0 +1,92 @@
+{% extends "core/base.html" %}
+
+{% block title %}Student dashboard{% endblock %}
+
+{% block content %}
+  <header class="dashboard-heading">
+    <div>
+      <h1>Student dashboard</h1>
+      <p>Welcome, {{ student.user.get_full_name|default:student.user.username }}.</p>
+    </div>
+    <span class="level-badge">Level {{ student.get_level_display }}</span>
+  </header>
+  {% if messages %}
+    <div aria-live="polite" aria-relevant="additions text">
+      {% for message in messages %}
+        <p class="status-message{% if message.tags == 'error' %} error{% endif %}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">{{ message }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+  {% if registration %}
+    <section class="panel" aria-labelledby="registration-heading">
+      <span class="status-label">Registration submitted</span>
+      <h2 id="registration-heading">Your submitted registration</h2>
+      <p>Submitted on <time datetime="{{ registration.submitted_at|date:'c' }}">{{ registration.submitted_at|date:"F j, Y, g:i a" }}</time>.</p>
+      <ul class="registration-list">
+        {% for item in registration.items.all %}
+          <li><strong>{{ item.course.code }}</strong> — <span class="course-name">{{ item.course.title }}</span></li>
+        {% endfor %}
+      </ul>
+      <p class="notice">This submission is final. You cannot edit your registered courses.</p>
+    </section>
+  {% elif review_courses %}
+    <section class="panel" aria-labelledby="review-heading">
+      <h2 id="review-heading">Review your course choices</h2>
+      <p>Check that these are the courses you want to register for.</p>
+      <ul class="registration-list">
+        {% for course in review_courses %}
+          <li><strong>{{ course.code }}</strong> — <span class="course-name">{{ course.title }}</span></li>
+        {% endfor %}
+      </ul>
+      <p class="notice">Your submission is final. You will not be able to change your courses after submitting.</p>
+      <div class="action-row">
+        <form method="post">
+          {% csrf_token %}
+          {% for course in review_courses %}
+            <input type="hidden" name="courses" value="{{ course.pk }}">
+          {% endfor %}
+          <button type="submit" name="action" value="finalize">Submit final registration</button>
+        </form>
+        <form method="post">
+          {% csrf_token %}
+          {% for course in review_courses %}
+            <input type="hidden" name="courses" value="{{ course.pk }}">
+          {% endfor %}
+          <button class="button-secondary" type="submit" name="action" value="edit">Change my choices</button>
+        </form>
+      </div>
+    </section>
+  {% elif courses %}
+    <section class="panel" aria-labelledby="courses-heading">
+      <h2 id="courses-heading">Available courses</h2>
+      <p>Select at least one course. You will review your choices before the final submission.</p>
+      <form method="post" class="form-stack">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <ul class="field-errors" role="alert">
+            {% for error in form.non_field_errors %}
+              <li>{{ error }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        {% if form.courses.errors %}
+          <ul class="field-errors" id="{{ form.courses.auto_id }}_error" role="alert">
+            {% for error in form.courses.errors %}
+              <li>{{ error }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        <fieldset class="course-fieldset"{% if form.courses.errors %} aria-invalid="true" aria-describedby="{{ form.courses.auto_id }}_error"{% endif %}>
+          <legend class="form-label">{{ form.courses.label }}</legend>
+          {{ form.courses }}
+        </fieldset>
+        <button type="submit" name="action" value="review">Review selected courses</button>
+      </form>
+    </section>
+  {% else %}
+    <section class="empty-state" aria-labelledby="empty-heading">
+      <h2 id="empty-heading">No courses available yet</h2>
+      <p>No courses are currently available for your level. Please check back later.</p>
+    </section>
+  {% endif %}
+{% endblock %}
