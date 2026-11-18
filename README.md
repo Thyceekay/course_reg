@@ -1,110 +1,99 @@
-# Course Registration System
+# Course Reg System
 
-A server-rendered Django application for one final, level-specific course
-registration per student.
+This project lets students register for courses available at their level and return later to view their selections. Administrators can create courses, assign them to levels, and see what each student registered for.
 
-## Implemented features
+Built it with Django, using its authentication and admin tools to keep the application straightforward.
 
-- Public signup and login/logout with Django authentication.
-- Level-specific course review and one final multi-course registration.
-- Read-only submitted registrations for students.
-- Django admin course management and student/registration review.
-- Delegated staff registration corrections through `core.change_registration`,
-  with required reasons and read-only audit snapshots.
-- Database and application validation that protect supported levels,
-  duplicate submissions, registered courses, and submitted student levels.
+## What you can do
 
-## Technology
+**Students**
+- Create an account with a name, username, level, and password.
+- Browse courses available for their level.
+- Select courses, review their choices, and submit.
+- Log back in to view their saved registration.
 
-- Python 3.14 and Django 5.2 LTS
-- Django templates, HTML, CSS, and minimal vanilla JavaScript
-- SQLite for local development; PostgreSQL for deployment
-- Gunicorn and WhiteNoise
-- GitHub Actions and Render
+**Administrators**
+- Create courses and assign them to student levels.
+- View students, including those who have not registered.
+- Review each student's submitted courses.
+- Correct a registration when permitted, with a reason and a record of the changes.
 
-## Folder map
+Students cannot change their choices after final submission.
 
-- `config/`: Django settings, URL routing, and WSGI/ASGI entry points.
-- `core/`: models, forms, views, admin, migrations, tests, templates, and CSS.
-- `docs/`: requirements, architecture, functional guide, deployment, testing,
-  and preparation records.
-- `.github/workflows/`: PostgreSQL-backed GitHub Actions tests.
-- `render.yaml`: selected Free Render web and PostgreSQL blueprint.
+## Built with
 
-## How the application fits together
+- Python and Django
+- HTML, CSS, and Django templates
+- SQLite for local development
+- PostgreSQL for the Render deployment
 
-`config/urls.py` sends public, authentication, student, and admin requests to
-`core/views.py` or Django admin. Views use Django forms in `core/forms.py` for
-input validation. `core/models.py` enforces relationships and database rules.
-Templates render the returned context, while `core/static/core/site.css`
-provides shared styling. The database is SQLite locally and PostgreSQL in
-production. Submitted registrations, items, correction audit records, and
-student/course relationships are tested in `core/tests.py`.
+## Run the project locally
 
-## Essential local setup
+You will need Python 3.14 and Git. The commands below use Windows PowerShell.
 
-Run from the project directory in Windows PowerShell:
+### 1. Download the project and install dependencies
 
 ```powershell
+git clone https://github.com/Thyceekay/course_reg.git
+cd course_reg
+
 py -3.14 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
+```
 
+### 2. Set up the local environment
+
+Run these commands in the same terminal:
+
+```powershell
 $env:DJANGO_SECRET_KEY = (& python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())")
 $env:DJANGO_DEBUG = "True"
 $env:DJANGO_ALLOWED_HOSTS = "127.0.0.1,localhost"
 $env:DATABASE_ENGINE = "sqlite"
+```
 
-python manage.py check
-python manage.py makemigrations --check --dry-run
+These settings apply to the current terminal session. Repeat this step when opening a new terminal. The project does not automatically load `.env` files.
+
+### 3. Prepare the database and start the application
+
+```powershell
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py collectstatic --noinput
 python manage.py runserver
 ```
 
-Open <http://127.0.0.1:8000/>. The public routes are:
+Follow the prompts to choose your administrator credentials.
 
-- `/accounts/signup/` and `/accounts/login/`
-- `/accounts/logout/` using POST
-- `/student/` for the authenticated student's dashboard
-- `/admin/` for active staff users
-- `/healthz/` for generic database readiness
+Open:
+- Application: http://127.0.0.1:8000/
+- Administration: http://127.0.0.1:8000/admin/
 
-The virtual environment and environment variables are local-only; `.env.example`
-lists variable names but is not loaded automatically.
+Local accounts and registrations remain in `db.sqlite3` when you stop the server.
 
-## Tests
+## Run the tests
 
-Run the complete Django suite with:
+With the environment configured and static files collected, run:
 
 ```powershell
 python manage.py test --verbosity 2
 ```
 
-Tests use an isolated Django test database. The suite verifies authentication,
-CSRF, level filtering, final submissions, locking, protected history, and
-audited admin corrections. A PostgreSQL-only concurrent-submission test is
-skipped when the configured test database is SQLite.
+The tests cover account access, course eligibility, submissions, and admin corrections. They use a separate test database. The PostgreSQL concurrency test is skipped when running with SQLite.
 
-## Known limitations
+## Project structure
 
-- Registration reset is not implemented.
-- Student account deletion is blocked when registration history exists.
-- PostgreSQL concurrency, live CI, and live Render behavior remain unverified
-  until their respective services run.
-- Free Render resources have no managed backups and an assessment database
-  expires; see the deployment guide.
-- No separate frontend framework or REST API is used.
-- A final registration cannot be changed through the student interface.
-
-## Detailed documentation
-
-- [Local development](docs/local-development.md)
-- [Functional guide](docs/functional-guide.md)
-- [Requirements](docs/requirements.md)
-- [Architecture](docs/architecture.md)
-- [Test plan](docs/test-plan.md)
-- [Test results](docs/test-results.md)
-- [Documentation/code audit](docs/documentation-code-audit.md)
-- [Render deployment](docs/deployment.md)
+| Location | What it contains |
+|---|---|
+| `config/` | Application settings and URL routes |
+| `core/models.py` | Students, courses, registrations, and their relationships |
+| `core/forms.py` | Signup and course-selection validation |
+| `core/views.py` | Student pages and registration handling |
+| `core/admin.py` | Course management and registration review |
+| `core/templates/` | HTML pages |
+| `core/static/` | Site styling |
+| `core/migrations/` | Database changes |
+| `docs/` | Setup, design, and deployment notes |
+| `.github/workflows/` | Automated checks |
+| `render.yaml` | Render deployment configuration |
