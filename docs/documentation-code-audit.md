@@ -149,13 +149,15 @@ documentation.
   `SECURE_SSL_REDIRECT=true`, secure cookies, and forwarded-proxy SSL handling.
 - **References:** .github/workflows/ci.yml:14-29 and 33-42;
   config/settings.py:185-192.
-- **Status/verification:** CI configuration now sets
+- **Status/verification:** CI configuration sets
   `DJANGO_SECURE_SSL_REDIRECT=false` only in the ephemeral test environment,
   while retaining non-debug, PostgreSQL, proxy-SSL, secure-cookie, and HSTS
-  settings. No workflow has run and PostgreSQL tests could not run locally
-  without a server. The override prevents HTTP test-client redirects so the
-  suite can exercise application behavior; production Render leaves the
-  redirect enabled by default.
+  settings. GitHub Actions ran the PostgreSQL concurrency test successfully,
+  but teardown initially failed because worker-thread connections remained
+  open; the full-suite step was skipped. Worker cleanup now explicitly closes
+  each thread's database connections in `finally`. Local PostgreSQL was not
+  available to rerun this test. Production Render leaves the redirect enabled
+  by default.
 
 ### Free Render configuration
 

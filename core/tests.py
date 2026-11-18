@@ -10,8 +10,8 @@ from django.contrib.auth.models import Permission
 from django.db import (
     IntegrityError,
     OperationalError,
-    close_old_connections,
     connection,
+    connections,
     transaction,
 )
 from django.core.exceptions import ValidationError
@@ -719,14 +719,14 @@ class PostgreSQLConcurrentRegistrationTests(TransactionTestCase):
         data = {"action": "finalize", "courses": str(course.pk)}
 
         def submit_registration():
-            close_old_connections()
             try:
+                connections.close_all()
                 client = Client()
                 client.force_login(user)
                 barrier.wait(timeout=10)
                 return client.post(reverse("student_dashboard"), data).status_code
             finally:
-                close_old_connections()
+                connections.close_all()
 
         with ThreadPoolExecutor(max_workers=2) as executor:
             responses = list(executor.map(lambda _: submit_registration(), range(2)))

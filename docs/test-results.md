@@ -23,19 +23,42 @@
   locally, but no Render resource or deployment was created.
 - GitHub Actions now collects static files, runs Django and migration checks,
   targets the PostgreSQL concurrency test explicitly, and runs the full suite
-  against its PostgreSQL service. The workflow has not yet run on GitHub.
+  against its PostgreSQL service. The latest inspected run failed during
+  teardown of the dedicated concurrency test; details and the worker-connection
+  fix are recorded below.
 - `.env`, `.venv`, and `db.sqlite3` are ignored and not Git-tracked. No tracked
   secret/credential filenames or common private-key, access-token, and
   credentialed-PostgreSQL-URL patterns were found. There is no configured Git
   remote; nothing was staged, committed, or pushed.
 
-**Still unverified:** the GitHub workflow has not run; PostgreSQL concurrency,
-migrations, and the complete suite have not run against PostgreSQL; no live
-Render database, TLS/HTTPS behavior, Free-tier service behavior, or live
-superuser creation was tested. No dependency vulnerability scan was run.
-`pip check` is not a vulnerability scan. The historical BR-08 and deployment
-findings below describe the earlier 2026-11-15 snapshot and are superseded by
-the current status above.
+**Still unverified:** the GitHub workflow has not passed after the worker
+connection fix. The dedicated PostgreSQL concurrency test passed before the
+fix but its test-database teardown failed; the full PostgreSQL suite was skipped
+by workflow sequencing. No live Render database, TLS/HTTPS behavior, Free-tier
+service behavior, or live superuser creation was tested. No dependency
+vulnerability scan was run. `pip check` is not a vulnerability scan. The
+historical BR-08 and deployment findings below describe the earlier 2026-11-15
+snapshot and are superseded by the current status above.
+
+## PostgreSQL concurrency connection cleanup
+
+- Inspected the complete GitHub Actions run log. Django checks and migration
+  consistency completed. The dedicated PostgreSQL concurrency test passed
+  (`Ran 1 test`, `OK`), then Django failed to drop its test database because
+  two worker-thread database sessions remained open. The subsequent full-suite
+  step was skipped; no earlier failing step or test assertion failure was
+  present. `check --deploy` emitted W005/W008/W021 warnings but exited
+  successfully; W008 follows from CI's HTTPS-redirect override.
+- The database URL configures persistent connections with `CONN_MAX_AGE=600`.
+  The worker's `close_old_connections()` call in `finally` does not close
+  healthy persistent connections. The test now calls thread-local
+  `connections.close_all()` in `finally`, including request/assertion failure
+  paths.
+- Local PostgreSQL was unavailable (no local server/client/container runtime;
+  port 5432 refused connections). PostgreSQL verification is therefore not
+  claimed. The GitHub workflow must verify the fix after pushing.
+- After the fix, the local SQLite full suite discovered 53 tests: 52 passed
+  and the PostgreSQL-only concurrency test was skipped.
 
 ## GitHub publication preparation (2026-11-18)
 

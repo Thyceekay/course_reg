@@ -171,3 +171,23 @@ For each implementation milestone, record:
   keys, and credentialed URLs. Generated and local-only paths remain excluded.
 - Remaining verification requires a GitHub PostgreSQL workflow run and an
   authorized live Render deployment; neither was performed.
+
+## PostgreSQL concurrency worker cleanup
+- Inspected the complete GitHub Actions run log for the dedicated PostgreSQL
+  concurrency step. Django checks and migration checks completed, the
+  concurrency test itself reported `Ran 1 test` / `OK`, and failure occurred
+  during Django test-database teardown when `DROP DATABASE` found two remaining
+  worker sessions. The full-suite CI step was skipped after that failure.
+  `check --deploy` emitted W005/W008/W021 warnings but exited successfully;
+  W008 is caused by CI's HTTPS-redirect override.
+- `DATABASE_URL` configures `CONN_MAX_AGE=600`; the worker's old
+  `close_old_connections()` call in `finally` could retain those healthy
+  persistent connections. Replaced it with thread-local
+  `connections.close_all()` in the worker's `finally` block, and close
+  pre-existing worker connections before issuing the request.
+- Local PostgreSQL verification was not run: no PostgreSQL client/server or
+  container runtime was available and localhost:5432 was not accepting
+  connections. After the fix, the SQLite full suite discovered 53 tests: 52
+  passed and the PostgreSQL-only concurrency test was skipped.
+- GitHub Actions must rerun the isolated PostgreSQL concurrency test and full
+  suite after this commit is pushed. No push or deployment was performed.
