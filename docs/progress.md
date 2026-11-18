@@ -117,3 +117,57 @@ For each implementation milestone, record:
 - Confirmed release gaps: BR-08 staff corrections are not implemented; deleting a student User through the default admin cascades to the profile, registration, and registration items. Suspected, not reproduced: model-level level validation may race with concurrent registration on PostgreSQL. The prior interactive browser checks are recorded in `docs/test-results.md`; they were not repeated during this review.
 - Remaining verification: PostgreSQL concurrency and migration behavior, Render deployment/HTTPS/static-file behavior, and dependency vulnerability scanning were not verified. `pip check` does not scan for vulnerabilities.
 - Next step: resolve BR-08 or formally change scope, prevent student account deletion from erasing registration history, and verify concurrent submissions and admin edits against PostgreSQL before release sign-off.
+
+## Initial Render deployment preparation milestone (superseded)
+- Reviewed the current official Render Django, Blueprint, Python runtime, health check, Postgres connection, free-plan, and backup guidance, together with the Django 5.2 deployment checklist and static-files guidance. Chose a paid single-instance web service and paid Basic-1gb Postgres database: Render's free Postgres expires after 30 days and does not provide production recovery features. The Blueprint was added locally only; no resources were provisioned or deployed.
+- Added Gunicorn, `dj-database-url`, and WhiteNoise. Production settings accept Render's PostgreSQL connection URL, require PostgreSQL outside debug mode, use secure proxy/HTTPS and cookie settings, derive the Render hostname and CSRF origin from `RENDER_EXTERNAL_HOSTNAME`, collect manifest-hashed static files, and log warnings/errors without Gunicorn access logs.
+- Added a database-aware `/healthz/` response that returns only a generic status, with tests for healthy and unavailable database cases.
+- Added `render.yaml` with build, paid pre-deploy migration, startup, generated secret, health-check, CI-gated auto-deploy, and Postgres configuration. Added a GitHub Actions workflow for Django/deployment checks, migration consistency, and tests using a PostgreSQL service. No project formatter or linter had been adopted, so none was added to CI.
+- Documented the Render commands and environment, interactive initial superuser creation, persistent database and backup considerations, and application/database rollback limitations in `docs/deployment.md`; linked it from `README.md`.
+- Validation run before editing: `manage.py test --verbosity 1` found 45 tests; 44 passed and the PostgreSQL-only concurrency test was skipped on SQLite.
+- Validation after changes: `manage.py check` passed; `manage.py test --verbosity 2` found 47 tests, with 46 passing and the PostgreSQL-only concurrency test skipped on SQLite; `makemigrations --check --dry-run`, `compileall`, `pip check`, and `git diff --check` passed. Pylance found no syntax errors in the changed Python files. Both YAML files parsed and their deployment/CI structure was checked.
+- Production settings were checked with temporary dummy secret/database values. `manage.py check --deploy` completed with two Django warnings (`security.W005` and `security.W021`) because HSTS subdomain and preload directives remain disabled until all subdomains are known HTTPS-only. `collectstatic --noinput` completed, and a production-mode test client retrieved the collected stylesheet through WhiteNoise with HTTP 200.
+- Not verified: the GitHub workflow has not run because no Git remote is configured; PostgreSQL-backed CI/concurrency, a live Render deployment, and actual Render HTTPS/database behavior remain unverified. No CI pass or deployment is claimed.
+- Next incomplete verification milestone: run the configured test workflow against PostgreSQL on GitHub and verify its concurrency test. Before release sign-off, also resolve the existing BR-08 staff-correction gap and the previously recorded student-deletion/history concern.
+
+## Free Render assessment and registration history milestone
+- Rechecked the current official Render Free-plan and Blueprint documentation, Render Postgres connection guidance, and Django 5.2 deployment checklist. Render confirms that Free Postgres has a 1 GB limit, expires after 30 days with a further 14-day upgrade grace period before deletion, and has no backups. Free web services spin down, use ephemeral filesystems, provide no shell or one-off jobs, and cannot scale beyond one instance. Render's Blueprint specification limits `preDeployCommand` to paid web/private/worker services.
+- Superseded the paid deployment plan with `plan: free` for both Blueprint resources, removed the unsupported pre-deploy field, and moved `migrate --noinput` before Gunicorn in the start command. Updated deployment guidance for repeated startup migrations, Free-tier limitations, data/export and rollback risks, environment names, and a temporary local PowerShell superuser workflow using an external PostgreSQL URL with `DATABASE_SSL_REQUIRE=true`.
+- Updated GitHub Actions to collect manifest static files before admin tests and to run the PostgreSQL concurrency test explicitly, as well as Django checks, migration consistency, and the full PostgreSQL-backed suite. No formatter or linter is configured in the project.
+- Implemented the BR-08 correction workflow in `core/admin.py` with registration-change permission, read-only standard admin fields, a required reason and at least one same-level course, transactionally replaced items, preserved `submitted_at`, `corrected_at`, and before/after/actor audit details. Added validation, permission, audit, timestamp, and rollback regression tests.
+- Changed `Registration.student` to `PROTECT` and generated `core.0003_protect_registration_history.py`, so user deletion cannot cascade away a registered student's history. Added model- and Django-admin deletion regression tests. The migration was applied only to isolated test databases; no migration was run against the existing local database.
+- Updated the functional guide, architecture, test plan, deployment guide, README, test-results, and this progress log. Validated Render and CI YAML using PyYAML; `makemigrations --check --dry-run`, `manage.py check`, `compileall`, `pip check`, and `git diff --check` passed. `manage.py check --deploy` passed with the expected `security.W005` and `security.W021` HSTS warnings; production static collection and an HTTPS WhiteNoise static-file smoke test returned HTTP 200.
+- Local test results: the targeted model/admin regression suites passed 24 tests. The full SQLite suite found 53 tests: 52 passed and the PostgreSQL concurrency test was skipped because SQLite is not PostgreSQL.
+- Verified `.env`, `.venv`, and `db.sqlite3` are ignored and not Git-tracked; found no tracked secret/credential filenames or common private-key, access-token, and credentialed-PostgreSQL-URL patterns. No Git remote is configured. No files were staged or committed; no GitHub workflow run, PostgreSQL-backed run, Render resource, live connection, deployment, or push occurred.
+- Remaining verification: run the PostgreSQL concurrency and complete CI workflow on GitHub after the user supplies the destination repository; verify any actual Render assessment deployment and external superuser setup only when authorized. A dependency vulnerability scan also remains unrun. No CI pass or deployment is claimed.
+
+## GitHub publication preparation milestone
+- Compared the Markdown documentation against the current source, migrations,
+  settings, templates, tests, CI workflow, and Render blueprint.
+- Added docs/documentation-code-audit.md as the current discrepancies record.
+  It distinguishes superseded paid-Render and historical BR-08 milestones from
+  current implementation.
+- Confirmed the source currently delegates registration corrections through
+  Django's `core.change_registration` permission; this is not superuser-only.
+- Confirmed registration reset has no implementation. Account deletion of a
+  registered student is blocked by `PROTECT` and admin permissions, rather than
+  preserved by a custom deletion workflow.
+- Added concise module and key model/form/view/admin/test documentation.
+- Corrected the test-plan deletion description to match the blocking behavior.
+- Verification: the debug SQLite suite discovered 53 tests, passed 52, and
+  skipped one PostgreSQL-only concurrency test. Migration consistency,
+  dependency consistency, and diff checks passed. A CI-like non-debug SQLite
+  run is not supported by settings and was rejected because SQLite is
+  intentionally prohibited outside debug mode.
+
+## Documentation and local publication preparation milestone
+- Reorganized the root README into a concise project overview and moved the
+  detailed Windows/PowerShell setup workflow to `docs/local-development.md`.
+- Verified `DJANGO_SECURE_SSL_REDIRECT` in settings: without the override,
+  non-debug production mode resolves it to true; the GitHub Actions workflow
+  sets it to false only for its PostgreSQL test job.
+- Reviewed the worktree for accidentally staged or untracked databases,
+  virtual environments, caches, static output, real environment files, private
+  keys, and credentialed URLs. Generated and local-only paths remain excluded.
+- Remaining verification requires a GitHub PostgreSQL workflow run and an
+  authorized live Render deployment; neither was performed.

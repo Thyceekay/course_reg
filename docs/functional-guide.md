@@ -1,8 +1,9 @@
 # Functional Guide
 
-This guide describes the application as it is implemented now. Student course
-browsing and registration workflows are not available yet, although staff can
-manage courses and review students and submitted registrations in admin.
+This guide describes the application as it is implemented now. Students can
+browse level-matched courses, review and submit one final registration, and
+return later to view it. Staff can manage courses and review students and
+submitted registrations in admin.
 
 ## Status key
 
@@ -95,8 +96,8 @@ records.
 |---|---|---|---|---|
 | Anonymous visitor | Home, signup, login | No; login required | No | Not available |
 | Student account | Home, login, logout | Own profile only | No | Not available |
-| Active staff account | Home and login | No; a student profile is required | Yes, subject to model permissions | Per granted core-model permissions; submitted registrations remain read-only |
-| Active superuser | Home and login | No; a student profile is required | Yes; Django superuser permissions | Manage courses and review all students and submitted registrations |
+| Active staff account | Home and login | No; a student profile is required | Yes, subject to model permissions | Per granted core-model permissions; registration corrections require `change_registration` |
+| Active superuser | Home and login | No; a student profile is required | Yes; Django superuser permissions | Manage courses, review all students and submissions, and make audited registration corrections |
 
 The application has no student/staff role model beyond Django's user flags and
 the `StudentProfile` relationship. A user created with `createsuperuser` is
@@ -135,8 +136,8 @@ permissions now control access to course and student-review screens.
 
 **Status: Implemented in Django admin.**
 
-- **Purpose:** Store the course code, title, and one academic level for a future
-  student course list.
+- **Purpose:** Store the course code, title, and one academic level for student
+  course selection.
 - **Where / who:** Staff with course permissions use `/admin/`. Django admin
   exposes course creation and management in [core/admin.py](../core/admin.py).
 - **Actions and fields:** The model fields are `code` (maximum 32 characters),
@@ -146,8 +147,8 @@ permissions now control access to course and student-review screens.
   by a registration item cannot be deleted; a level change that would make an
   existing registration inconsistent is rejected by model validation in admin.
   Bulk actions are disabled.
-- **Prerequisites / next step:** Staff can create courses now; a student-facing
-  level-filtered course list and selection workflow remain to be implemented.
+- **Prerequisites / next step:** Students see courses matching their stored
+  level on the dashboard at `/student/`.
 - **Example:** An authorized administrator can create `CS101`, title it
   “Introduction to Computing”, and assign level 100.
 
@@ -172,80 +173,70 @@ permissions now control access to course and student-review screens.
   A user without a student profile cannot view `/student/`. Model validation
   prevents changing a student's level after a `Registration` exists.
 - **Prerequisites / next step:** No administrator approval is required for
-  public signup. After signup or login, the current next step is the profile
-  dashboard; course browsing has not been implemented.
+  public signup. After signup or login, the dashboard displays eligible courses
+  or the student's saved registration.
 - **Example:** Sign up with username `avery`, a full name, level 200, and a
   password that passes validation; the dashboard then displays the name and
   level.
 
 ## 6. Course browsing and selection
 
-**Status: Planned.** Course data exists in the model, but course browsing and
-selection do not exist.
+**Status: Implemented.**
 
 - **Purpose:** Let a student find courses assigned to their level and choose
-  courses for registration.
-- **Where / who:** There is no course-list URL, page, or selection form.
-  Students cannot currently browse courses in the application.
-- **Actions and fields:** No course selection fields or actions are available.
-  `Course` stores code, title, and level; the student's level is stored on
-  `StudentProfile`.
-- **Restrictions and validation:** The model supports only levels 100, 200,
-  300, 400, and 500. The model alone does not filter a web page; a future view
-  must filter to the signed-in student's level on the server.
-- **Prerequisites / next step:** Course records and a level-filtered student
-  view are needed before registration submission can be used.
-- **Example (planned):** A level-200 student should eventually see only
-  level-200 courses; that page is not available yet.
+  courses for registration. Students use `/student/`, where the server filters courses using the
+  authenticated student's stored profile level.
+- **Actions and fields:** Each available course is shown as a labelled
+  checkbox with its code and title. Students may select one or more courses.
+  An informative message appears when no courses are available for their level.
+- **Restrictions and validation:** Browser-supplied student IDs and levels are
+  not used. Submitted course IDs are validated against database records at the
+  student's level.
+- **Next step:** Select courses and choose **Review selected courses** before
+  the final submission.
+- **Example:** A level-200 student sees level-200 courses only; level-100 and
+  other-level courses are not offered.
 
 ## 7. Final registration submission
 
-**Status: Partial.** Registration models and important consistency constraints
-exist; no submission form or workflow exists.
+**Status: Implemented.**
 
 - **Purpose:** Persist a student's final course choices as one registration
   with one or more registration items.
-- **Where / who:** No student submission URL or form exists.
-- **Actions and fields:** `Registration` links one `StudentProfile` to a
-  submission timestamp. Each `RegistrationItem` links that registration to one
-  `Course`. One registration can therefore contain multiple items.
+- **Where / who:** Authenticated students submit at `/student/`.
+- **Actions and fields:** Students review the selected courses, then explicitly
+  confirm the final submission. The server creates a `Registration` and one
+  `RegistrationItem` per selected course in one database transaction.
 - **Restrictions and validation:** A one-to-one relationship allows at most
   one `Registration` per student. A database constraint prevents the same
-  course appearing twice in one registration, and model validation checks that
-  each course level matches the student's level. The database does not require
-  a registration to have any items; the missing submission workflow must
-  enforce at least one selected course and save the registration and items
-  atomically.
-- **Prerequisites / next step:** Course browsing and selection are required.
-  The future submit action must validate the selection server-side and reject a
-  second registration.
-- **Example (planned):** A level-100 student selecting two level-100 courses
-  would eventually create one `Registration` and two `RegistrationItem` rows.
+  course appearing twice in one registration. The form rejects empty,
+  malformed, nonexistent, duplicate, and wrong-level course IDs. The final transaction
+  locks the student's profile and selected eligible course rows; the database's
+  one-to-one constraint is the final safeguard against duplicate submissions.
+  Repeated submissions redirect to the saved registration and do not edit it.
+- **Finality:** The review page explains that submission is final. After
+  submission, students cannot edit their choices.
+- **Example:** A level-100 student selecting two level-100 courses creates one
+  `Registration` with two items and receives a redirect to the saved view.
 
 ## 8. Student viewing of submitted courses
 
-**Status: Planned.** Registration data can be represented in the models, but
-students have no page to review it.
+**Status: Implemented.**
 
 - **Purpose:** Allow a student to confirm a saved final registration on a later
   visit.
-- **Where / who:** No saved-registration URL or template exists. The current
-  `/student/` page displays only the student's name and level.
-- **Actions and fields:** There is no action to list submitted courses or
-  retrieve registration history through the application.
-- **Restrictions and validation:** A future view must use the authenticated
-  student's profile when retrieving registration data; it must not trust a
-  student ID supplied by the browser. The current dashboard already resolves
-  its profile from the signed-in user.
-- **Prerequisites / next step:** A final registration must first be implemented
-  and saved.
-- **Example (planned):** After a successful submission, a student should
-  eventually return to a page showing the courses in that registration.
+- **Where / who:** Students view the saved registration on `/student/`.
+- **Actions and fields:** The page shows all submitted course codes and titles,
+  together with the submission timestamp.
+- **Restrictions and validation:** The registration is looked up through the
+  authenticated student's profile, not a browser-supplied ID. The persistent
+  record remains available after logout and a later login.
+- **Example:** After signing in again, a student returns to `/student/` and sees
+  the same saved courses and submission time.
 
-## 9. Admin review of students and registrations
+## 9. Admin review and correction of registrations
 
-**Status: Implemented for course management and student/registration review;
-registration correction is unavailable.**
+**Status: Implemented for review and audited course corrections.**
 
 - **Purpose:** Let authorized staff manage courses and review all students and
   their submissions.
@@ -255,29 +246,28 @@ registration correction is unavailable.**
 - **Actions and fields:** Staff with the relevant permissions can create and
   search/filter courses, search students by name or username, see all student
   profiles (including those without registrations), and inspect each
-  submission's level, status, time, and selected courses.
+  submission's level, status, time, and selected courses. Staff with the
+  `change_registration` permission can open the dedicated correction form.
 - **Restrictions and validation:** Admin access requires an active staff user;
   individual Django model permissions control available actions. Bulk actions
   are disabled. Students with a submitted registration have a read-only level;
-  submitted registrations cannot be added, changed, or deleted through admin.
-  A course used in a submission cannot be deleted or assigned an incompatible
-  level.
-- **Future correction workflow:** Version one does not correct a submitted
-  registration in place. A future correction process should require an
-  authorized, documented request; preserve the original submitted record;
-  validate the corrected student/course levels; and record the actor, reason,
-  time, and before/after values in an audit trail. Until such a workflow exists,
-  corrections must not be made by silently editing historical records or
-  bypassing admin protections.
+  ordinary registration add/change/delete pages remain unavailable. A
+  correction requires at least one course at the student's current level and a
+  non-empty reason; the server rechecks course eligibility and applies the
+  replacement atomically. The original submission time is preserved.
+- **Audit and history:** Each successful correction records the acting
+  administrator, reason, timestamp, target, original submission time, and
+  before/after course snapshots. Audit records are read-only in admin.
+  Deleting a student account with a submitted registration is protected so
+  account deletion cannot cascade away that registration or its items.
 - **Prerequisites / next step:** Create an active staff/superuser account as
   described in section 1, then grant the least required model permissions to
-  staff groups or accounts.
-- **Not available:** Student-facing course browsing, registration submission
-  and viewing, and staff corrections to submitted registrations are not
-  implemented in version one.
-- **Example:** A student visiting `/admin/` is denied entry; an authorized
-  staff member can review an unregistered student and inspect a submitted
-  registration without changing its historical data.
+  staff groups or accounts. Review corrections in the read-only Registration
+  Audits screen.
+- **Example:** An authorized administrator replaces a mistaken course with
+  another course at the student's level and records why. The student continues
+  to see the corrected course list, the original submission time remains
+  unchanged, and the audit retains both course lists and the administrator.
 
 ## 10. Logout and access restrictions
 
@@ -304,19 +294,15 @@ registration correction is unavailable.**
 
 The following actions are not currently available through the application:
 
-- Browsing level-specific courses or selecting courses as a student.
-- Submitting, editing, or viewing a final registration.
-- Correcting submitted registrations through an audited staff workflow.
 - Payments, timetables, prerequisites, credit limits, email notifications,
   PDF exports, and multiple academic sessions.
 
 ## Test evidence
 
-The [progress log](./progress.md) records that the authentication milestone's
-`manage.py test` run passed 25 tests and that
-`python manage.py makemigrations --check --dry-run` reported no changes. This
-guide change did not run tests. It also records the later admin milestone's
-focused permission and protection test results.
+The [progress log](./progress.md) records the historical authentication and
+admin test results as well as the latest registration-workflow validation.
+The PostgreSQL concurrency test is included but requires a PostgreSQL test
+database to execute; the local SQLite run skips it.
 
 Tests in [core/tests.py](../core/tests.py) support the implemented behavior:
 
@@ -327,8 +313,14 @@ Tests in [core/tests.py](../core/tests.py) support the implemented behavior:
   POST-only logout.
 - `RegistrationModelTests` checks persistence relationships, uniqueness,
   supported levels, course/profile consistency, and protection of registered
-  data. These are model tests; they do not prove that course or registration
-  screens exist.
+  courses and student registration history.
 - `AdminWorkflowTests` verifies course creation/search/filtering, student
   review and search (including students without registrations), read-only
-  submitted registrations, permissions, and course/student-level protections.
+  registration pages, authorized corrections and their audit records,
+  correction validation/rollback, permissions, and course/student deletion
+  protections.
+- `StudentRegistrationFlowTests` covers level-specific lists and empty states,
+  review and successful multi-course submission, empty and tampered selections,
+  repeated requests, transaction rollback, and ownership.
+- `PostgreSQLConcurrentRegistrationTests` verifies competing submissions when
+  run against PostgreSQL; it is skipped on SQLite.
