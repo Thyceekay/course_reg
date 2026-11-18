@@ -1,0 +1,25 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a>
+  &rsaquo; <a href="{% url 'admin:core_registration_changelist' %}">Registrations</a>
+  &rsaquo; Correct registration
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+<p>
+  Original submission: {{ original.submitted_at }}. Correcting courses does
+  not change the original submission time.
+</p>
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <div class="submit-row">
+    <input type="submit" value="Save correction" class="default">
+  </div>
+</form>
+{% endblock %}
+<!-- Dedicated audited correction page; standard registration fields stay read-only. -->

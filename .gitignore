@@ -1,0 +1,20 @@
+# Python bytecode and local virtual environments.
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local environment variables and generated application data.
+.env
+.env.*
+!.env.example
+db.sqlite3
+*.sqlite3
+staticfiles/
+
+# Test, coverage, and editor files.
+.pytest_cache/
+.coverage
+htmlcov/
+.vscode/
+.idea/

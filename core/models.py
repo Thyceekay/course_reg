@@ -1,3 +1,5 @@
+"""Core course-registration models and database invariants."""
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -5,6 +7,8 @@ from django.db.models import Q
 
 
 class StudentLevel(models.IntegerChoices):
+    """Academic levels supported by courses and student profiles."""
+
     LEVEL_100 = 100, "100"
     LEVEL_200 = 200, "200"
     LEVEL_300 = 300, "300"
@@ -13,6 +17,8 @@ class StudentLevel(models.IntegerChoices):
 
 
 class StudentProfile(models.Model):
+    """Link a Django user to a student's academic level."""
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -29,6 +35,7 @@ class StudentProfile(models.Model):
         ]
 
     def clean(self):
+        """Prevent profile-level changes after a final registration exists."""
         super().clean()
         if self.pk and self.level is not None:
             previous_level = (
@@ -44,6 +51,7 @@ class StudentProfile(models.Model):
                 )
 
     def save(self, *args, **kwargs):
+        """Run level-lock validation for normal saves and level updates."""
         update_fields = kwargs.get("update_fields")
         if update_fields is None or "level" in update_fields:
             self.clean()
@@ -54,6 +62,8 @@ class StudentProfile(models.Model):
 
 
 class Course(models.Model):
+    """A uniquely coded course offered at exactly one supported level."""
+
     code = models.CharField(max_length=32, unique=True)
     title = models.CharField(max_length=200)
     level = models.PositiveSmallIntegerField(choices=StudentLevel.choices)
@@ -90,11 +100,13 @@ class Course(models.Model):
             )
 
     def clean(self):
+        """Normalize the code and block registered courses from incompatible moves."""
         super().clean()
         self.code = self.normalize_code(self.code)
         self._validate_registered_level_change()
 
     def save(self, *args, **kwargs):
+        """Normalize course codes and preserve registration consistency on save."""
         self.code = self.normalize_code(self.code)
         update_fields = kwargs.get("update_fields")
         if update_fields is None or "level" in update_fields:
@@ -106,9 +118,11 @@ class Course(models.Model):
 
 
 class Registration(models.Model):
+    """One final course registration for a student in the current cycle."""
+
     student = models.OneToOneField(
         StudentProfile,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="registration",
     )
     submitted_at = models.DateTimeField(auto_now_add=True)
@@ -119,6 +133,8 @@ class Registration(models.Model):
 
 
 class RegistrationAudit(models.Model):
+    """Immutable history describing registration corrections and protected actions."""
+
     class Action(models.TextChoices):
         COURSE_CORRECTION = "course_correction", "Course correction"
         REGISTRATION_RESET = "registration_reset", "Registration reset"
@@ -170,6 +186,7 @@ class RegistrationItem(models.Model):
         ]
 
     def clean(self):
+        """Require selected courses to match the registration student's level."""
         super().clean()
         if not self.registration_id or not self.course_id:
             return
